@@ -1,0 +1,1 @@
+java -cp bank-statement-tools.jar ro.bilica.ionut.tools.finance.statement.normalize.ing_normalize %1

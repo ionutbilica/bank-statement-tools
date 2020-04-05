@@ -1,9 +1,12 @@
-(ns ro.bilica.ionut.tools.finance.import-bank-statement
-      (:gen-class)
-      (:require [clojure.string :as str])
-      (:import (java.util Locale)
-               (java.time LocalDate)
-               (java.time.format DateTimeFormatter)))
+(ns ro.bilica.ionut.tools.finance.statement.normalize.ing-normalize
+  (:gen-class)
+  (:require [clojure.string :as str]
+            [clojure.data.csv :as csv]
+            [clojure.java.io :as io])
+  (:import (java.util Locale)
+           (java.time LocalDate)
+           (java.time.format DateTimeFormatter)
+           (java.io File)))
 
 (defn- read-file [f] (str/split-lines (slurp f)))
 
@@ -33,27 +36,44 @@
               (conj result line)))]
     (reduce reducer [] lines)))
 
+(defn- remove-quotes [s] (if (empty? s) "" (subs s 1 (dec (count s)))))
 
 (defn- reformat-line [line]
   (let [cells (str/split line #"(,)(?=(?:[^\"]|\"[^\"]*\")*$)") ; https://www.regextester.com/107780
-        [date _ _ _ _ debit _ credit] cells
-        details (str/trim (str/join " " (nthrest cells 8)))
+        [date _ _ _ _ debitQ _ creditQ] cells
+        [debit credit] [(remove-quotes debitQ) (remove-quotes creditQ)]
+        details (str/trim (str/join " " (nthrest cells 8))) ; Details start at token 8.
         ]
-    {:date date :debit debit :credit credit :details details})) ; TODO Is there a nicer way?
+    {:date date :account "ing" :debit debit :credit credit :details details})) ; TODO There should be a nicer way but I don't remember.
 
 (def ing-format (DateTimeFormatter/ofPattern "dd MMMM yyyy" (Locale/forLanguageTag "ro")))
 (def out-format (DateTimeFormatter/ofPattern "dd-MM-yyyy"))
 
 (defn- reformat-date [line] (update line :date #(.format (LocalDate/parse % ing-format) out-format)))
 
-(defn- clean [lines]
+(defn- normalize [lines]
   (->> lines
        (remove-headers)
        (remove-non-transactions)
        (to-one-transaction-per-line)
        (map reformat-line)
        (map reformat-date)
-       ))
+       (map vals)))
+
+(defn is-csv? [file] (str/ends-with? (.getName file) ".csv"))
+
+(defn normalize-dir [dir]
+  (let [files (filter is-csv? (.listFiles dir))
+        transactions (apply concat (pmap #(normalize (read-file %)) files))
+        csv-content (cons ["Date" "Account" "Debit" "Credit" "Details"] transactions)
+        ]
+    csv-content)
+  )
+
+(defn- write-csv [lines]
+  (with-open [writer (io/writer "ing.csv")]
+    (csv/write-csv writer lines)))
 
 (defn -main [& args]
-  (println "----" (apply str (interpose "\n" (clean (read-file (first args)))))))
+    (write-csv (normalize-dir (File. (first args))))
+  (shutdown-agents))
