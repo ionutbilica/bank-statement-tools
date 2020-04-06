@@ -12,12 +12,10 @@
 
 (defn- remove-headers [lines] (remove #(str/starts-with? % ",Data,,") lines))
 
-(defn- includes-any? [s subs]
-  (if (empty? subs)
-    false
-    (if (str/includes? s (first subs))
-      true
-      (recur s (rest subs)))))
+(defn- includes-any? [s & [[substr & more]]]
+  (when (some? substr)
+    (or (str/includes? s substr)
+        (recur s [more]))))
 
 (defn- remove-non-transactions [lines] (remove #(includes-any? % ["Roxana Petria"
                                                                   "Alexandra Ilie"
@@ -75,5 +73,5 @@
     (csv/write-csv writer lines)))
 
 (defn -main [& args]
-    (write-csv (normalize-dir (File. (first args))))
+  (write-csv (normalize-dir (File. (first args))))
   (shutdown-agents))
