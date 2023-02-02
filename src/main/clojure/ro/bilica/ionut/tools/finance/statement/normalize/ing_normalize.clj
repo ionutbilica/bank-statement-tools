@@ -38,9 +38,9 @@
 
 (defn- reformat-line [line]
   (let [cells (str/split line #"(,)(?=(?:[^\"]|\"[^\"]*\")*$)") ; https://www.regextester.com/107780
-        [date _ _ _ _ debitQ _ creditQ] cells
+        [date _ _ _ _ _ debitQ _ creditQ] cells
         [debit credit] [(remove-quotes debitQ) (remove-quotes creditQ)]
-        details (str/trim (str/join " " (nthrest cells 8))) ; Details start at token 8.
+        details (str/trim (str/join " " (nthrest cells 9))) ; Details start at token 9.
         ]
     {:date date :account "ing" :debit debit :credit credit :details details})) ; TODO There should be a nicer way but I don't remember.
 
@@ -63,7 +63,8 @@
 (defn normalize-dir [dir]
   (let [files (filter is-csv? (.listFiles dir))
         transactions (apply concat (pmap #(normalize (read-file %)) files))
-        csv-content (cons ["Date" "Account" "Debit" "Credit" "Details"] transactions)
+        sorted-transactions (sort-by #(.toEpochDay (LocalDate/parse (first %) out-format)) transactions)
+        csv-content (cons ["Date" "Account" "Debit" "Credit" "Details"] sorted-transactions)
         ]
     csv-content)
   )
