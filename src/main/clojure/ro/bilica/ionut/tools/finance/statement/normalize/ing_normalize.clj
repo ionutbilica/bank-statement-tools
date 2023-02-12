@@ -49,13 +49,19 @@
 (def amount-format (DecimalFormat. "0.00"))
 (defn- format-amount [amount] (.format amount-format amount))
 
+(defn- format-details [details]
+  (-> details
+      (str/trim)
+      (str/replace #"\s\s+" "  "))
+  )
+
 (defn- reformat-line [line]
   (let [cells (str/split line #"(,)(?=(?:[^\"]|\"[^\"]*\")*$)") ; https://www.regextester.com/107780
         [date _ _ _ _ _ debitQ _ creditQ] cells
         [debitStr creditStr] [(remove-quotes debitQ) (remove-quotes creditQ)]
         [debit credit] [(parse-amount debitStr) (parse-amount creditStr)]
         amount (format-amount (- credit debit))
-        details (str/trim (str/join " " (nthrest cells 9))) ; Details start at token 9.
+        details (format-details (str/join " " (nthrest cells 9))) ; Details start at token 9.
         ]
     {:date date :account "ing" :amount amount :details details}))
 
