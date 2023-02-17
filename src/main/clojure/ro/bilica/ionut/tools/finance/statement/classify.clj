@@ -1,7 +1,7 @@
-(ns ro.bilica.ionut.tools.finance.statement.normalize.classify
+(ns ro.bilica.ionut.tools.finance.statement.classify
   (:require [clojure.string :as str]
-            [ro.bilica.ionut.tools.finance.statement.normalize.csv-util :refer :all]
-            [ro.bilica.ionut.tools.finance.statement.normalize.lang-util :refer :all]
+            [ro.bilica.ionut.tools.finance.statement.csv-util :refer :all]
+            [ro.bilica.ionut.tools.finance.statement.lang-util :refer :all]
             )
   (:import (clojure.lang Keyword)
            (java.io File Writer)))
@@ -30,7 +30,7 @@
                             ]
                         {::token clean-token ::category category ::date date}))))
 
-(require '(ro.bilica.ionut.tools.finance.statement.normalize [classify-save-load :as sl]))
+(require '(ro.bilica.ionut.tools.finance.statement [classify-save-load :as sl]))
 
 (defn add-new-rule [rule rules]
   (let [new-rules (cond (= ::quit rule) (assoc rules ::quit true)
@@ -48,7 +48,7 @@
          matching-permanent-rules (filter #(permanent-rule-matches? details %) permanent-rules)
          matching-one-time-rules (filter #(one-time-rule-matches? transaction %) one-time-rules)
          matching-rules (concat matching-permanent-rules matching-one-time-rules)
-         _ (when (more-than-one? matching-rules) (throw (Exception. (str "Too many rules matching transaction " transaction (doall matching-rules)))))]
+         _ (when (more-than-one? matching-rules) (throw (Exception. (str "Too many rules matching transaction " transaction (into [] matching-rules)))))]
         matching-rules))
 
 (defn add-rule-if-needed [rules transaction]
@@ -63,24 +63,23 @@
 
 (defn classify-transaction [rules transaction]
   (let [matching-rules (find-matching-rules transaction rules)
-        _ (when (empty? matching-rules) (throw (Exception. (str "No rule matching transaction " transaction))))
+        ;_ (when (empty? matching-rules) (throw (Exception. (str "No rule matching transaction " transaction))))
         rule (first matching-rules)
         ]
-    {::transaction transaction ::rule rule}
-    ))
+    {::transaction transaction ::rule rule}))
 
-(defn classify [inputFile]
+(defn classify [inputFile out permanent-rules-file one-time-rules-file]
   (let [transactions (sl/load-normalized-transactions inputFile)
-        existing-rules (sl/load-rules)
+        existing-rules (sl/load-rules permanent-rules-file one-time-rules-file)
         rules (reduce add-rule-if-needed existing-rules transactions)
-        _ (sl/save-rules rules)
+        _ (sl/save-rules rules permanent-rules-file one-time-rules-file)
         classified-transactions (map #(classify-transaction rules %) transactions)
         ]
-    (sl/save-classified-transactions classified-transactions)
+    (sl/save-classified-transactions classified-transactions out)
   ))
 
-(defn -main [& args]
-  (classify (File. (first args))))
+(defn -main [in out permanent-rules-file one-time-rules-file]
+  (classify in out permanent-rules-file one-time-rules-file))
 
 (set! *print-namespace-maps* false)
 (defmethod print-method Keyword [^Keyword k, ^Writer w]

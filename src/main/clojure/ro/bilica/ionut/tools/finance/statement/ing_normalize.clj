@@ -1,13 +1,12 @@
-(ns ro.bilica.ionut.tools.finance.statement.normalize.ing-normalize
+(ns ro.bilica.ionut.tools.finance.statement.ing-normalize
   (:gen-class)
   (:require [clojure.string :as str]
-            [clojure.data.csv :as csv]
-            [clojure.java.io :as io])
-  (:import (java.text DecimalFormat)
-           (java.util Locale)
+            [ro.bilica.ionut.tools.finance.statement.normalize.csv-util :as csv-util]
+            [ro.bilica.ionut.tools.finance.statement.normalize.normalize-commons :as common])
+  (:import (java.io File)
            (java.time LocalDate)
            (java.time.format DateTimeFormatter)
-           (java.io File)))
+           (java.util Locale)))
 
 (defn- read-file [f] (str/split-lines (slurp f)))
 
@@ -46,9 +45,6 @@
         ]
     (Double/parseDouble amount-str-clean)))
 
-(def amount-format (DecimalFormat. "0.00"))
-(defn- format-amount [amount] (.format amount-format amount))
-
 (defn- format-details [details]
   (-> details
       (str/trim)
@@ -60,15 +56,14 @@
         [date _ _ _ _ _ debitQ _ creditQ] cells
         [debitStr creditStr] [(remove-quotes debitQ) (remove-quotes creditQ)]
         [debit credit] [(parse-amount debitStr) (parse-amount creditStr)]
-        amount (format-amount (- credit debit))
+        amount (common/format-amount (- credit debit))
         details (format-details (str/join " " (nthrest cells 9))) ; Details start at token 9.
         ]
     {:date date :account "ing" :amount amount :details details}))
 
 (def ing-format (DateTimeFormatter/ofPattern "dd MMMM yyyy" (Locale/forLanguageTag "ro")))
-(def out-format (DateTimeFormatter/ofPattern "dd-MM-yyyy"))
 
-(defn- reformat-date [line] (update line :date #(.format (LocalDate/parse % ing-format) out-format)))
+(defn- reformat-date [line] (update line :date #(.format (LocalDate/parse % ing-format) common/normal-date-format)))
 
 (defn- normalize [lines]
   (->> lines
@@ -81,31 +76,15 @@
 
 (defn is-csv? [file] (str/ends-with? (.getName file) ".csv"))
 
-(defn- reduce-for-balance [r [_ _ amount-str :as t]]
-  (let [amount (Double/parseDouble amount-str)
-        balance (+ amount (::prev r))
-        formatted-balance (format-amount balance)
-        ]
-    {::prev balance
-     ::transactions (conj (::transactions r) (conj (into [] t) formatted-balance))
-     }))
-(defn- add-balance [transactions initial-amount]
-  (::transactions (reduce reduce-for-balance {::prev initial-amount ::transactions []} transactions)))
-
 (defn normalize-dir [dir initial-amount]
   (let [files (filter is-csv? (.listFiles dir))
         transactions (apply concat (pmap #(normalize (read-file %)) files))
-        sorted-transactions (sort-by #(.toEpochDay (LocalDate/parse (first %) out-format)) transactions)
-        with-balance (add-balance sorted-transactions initial-amount)
-        csv-content (cons ["Date" "Account" "Amount" "Details" "Balance"] with-balance)
+        sorted-transactions (sort-by #(.toEpochDay (LocalDate/parse (first %) common/normal-date-format)) transactions)
+        with-balance (common/add-balance sorted-transactions initial-amount)
+        csv-content (common/add-csv-header with-balance)
         ]
-    csv-content)
-  )
+    csv-content))
 
-(defn- write-csv [lines]
-  (with-open [writer (io/writer "ing.csv")]
-    (csv/write-csv writer lines)))
-
-(defn -main [input-dir initial-amount]
-  (write-csv (normalize-dir (File. input-dir) (Double/parseDouble initial-amount)))
+(defn -main [^String input-dir initial-amount]
+  (csv-util/write-csv (normalize-dir (File. input-dir) (Double/parseDouble initial-amount)) "ing.csv")
   (shutdown-agents))

@@ -2,3 +2,5 @@
 /target/
 *.iml
 /.idea/
+/private/*
+/src/main/clojure/ro/bilica/ionut/tools/finance/statement/private/*
