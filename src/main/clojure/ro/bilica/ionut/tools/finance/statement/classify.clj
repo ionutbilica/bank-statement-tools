@@ -32,11 +32,11 @@
 
 (require '(ro.bilica.ionut.tools.finance.statement [classify-save-load :as sl]))
 
-(defn add-new-rule [rule rules]
+(defn add-new-rule [rule rules permanent-rules-file one-time-rules-file]
   (let [new-rules (cond (= ::quit rule) (assoc rules ::quit true)
                         (::date rule) (update rules ::one-time-rules conj rule)
                         :else (update rules ::permanent-rules conj rule))]
-    (sl/save-rules new-rules)
+    (sl/save-rules new-rules permanent-rules-file one-time-rules-file)
     new-rules))
 
 (defn permanent-rule-matches? [details rule] (matches details (::token rule)))
@@ -51,15 +51,15 @@
          _ (when (more-than-one? matching-rules) (throw (Exception. (str "Too many rules matching transaction " transaction (into [] matching-rules)))))]
         matching-rules))
 
-(defn add-rule-if-needed [rules transaction]
+(defn add-rule-if-needed [{::keys [rules permanent-rules-file one-time-rules-file] :as r} transaction]
   (if (::quit rules)
-    rules
+    r
     (let [matching-rules (find-matching-rules transaction rules)
           ]
       (if (empty? matching-rules)
-        (add-new-rule (get-new-rule transaction) rules)
+        (update r ::rules #(add-new-rule (get-new-rule transaction) % permanent-rules-file one-time-rules-file))
         (do (println "category:" (::category (first matching-rules)) "transaction:" transaction) (println)
-            rules)))))
+            r)))))
 
 (defn classify-transaction [rules transaction]
   (let [matching-rules (find-matching-rules transaction rules)
@@ -71,9 +71,11 @@
 (defn classify [inputFile out permanent-rules-file one-time-rules-file]
   (let [transactions (sl/load-normalized-transactions inputFile)
         existing-rules (sl/load-rules permanent-rules-file one-time-rules-file)
-        rules (reduce add-rule-if-needed existing-rules transactions)
-        _ (sl/save-rules rules permanent-rules-file one-time-rules-file)
-        classified-transactions (map #(classify-transaction rules %) transactions)
+        r (reduce add-rule-if-needed
+                      (zipmap [::rules ::permanent-rules-file ::one-time-rules-file] [existing-rules permanent-rules-file one-time-rules-file])
+                      transactions)
+        _ (sl/save-rules (::rules r) permanent-rules-file one-time-rules-file)
+        classified-transactions (map #(classify-transaction (::rules r) %) transactions)
         ]
     (sl/save-classified-transactions classified-transactions out)
   ))
@@ -86,8 +88,3 @@
   (if (.getNamespace k)
     (.write w (str "::" (name k)))
     (.write w (str k))))
-
-(defn all-ancestors[category]
-  (let [parts (str/split category #"\.")]
-    (for [i (range 1 (inc (count parts)))]
-      (str/join "." (take i parts)))))

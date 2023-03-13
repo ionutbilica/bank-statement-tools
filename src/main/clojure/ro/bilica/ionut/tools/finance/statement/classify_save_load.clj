@@ -1,7 +1,8 @@
 (ns ro.bilica.ionut.tools.finance.statement.classify-save-load
-  (:require [ro.bilica.ionut.tools.finance.statement.csv-util :refer :all]))
-
-(require '(ro.bilica.ionut.tools.finance.statement [classify :as c]))
+  (:require
+    [ro.bilica.ionut.tools.finance.statement.csv-util :refer :all]
+    [ro.bilica.ionut.tools.finance.statement.normalize-commons :as commons]
+    [ro.bilica.ionut.tools.finance.statement.classify :as c]))
 
 (defn- save-permanent-rules [rules f] (write-csv (map #(vector (::c/category %) (::c/token %)) rules) f))
 (defn- save-one-time-rules [rules f] (write-csv (map #(vector (::c/category %) (::c/token %) (::c/date %)) rules) f))
@@ -14,7 +15,7 @@
   (into [] (map #(assoc {} ::c/category (first %) ::c/token (second %) ::c/date (nth % 2))
                 (take-csv f))))
 
-(defn load-rules[permanent-rules-file one-time-rules-file] {::c/permanent-rules (load-permanent-rules permanent-rules-file) ::c/one-time-rules (load-one-time-rules one-time-rules-file)})
+(defn load-rules [permanent-rules-file one-time-rules-file] {::c/permanent-rules (load-permanent-rules permanent-rules-file) ::c/one-time-rules (load-one-time-rules one-time-rules-file)})
 
 (defn save-rules [r permanent-rules-file one-time-rules-file]
   (save-permanent-rules (::c/permanent-rules r) permanent-rules-file)
@@ -26,9 +27,21 @@
 
 (defn save-classified-transactions [classified-transactions out]
   (write-csv
-    (cons ["Category" "Date" "Amount" "Account" "Details" "Balance"]
+    (cons ["Category" "Date" "Account" "Amount" "Details" "Balance"]
           (map classified-transaction-csv-line classified-transactions)) out))
+
+(defn load-classified-transactions [in]
+  (take-csv-without-header in ::c/category ::c/date ::c/account ::c/amount ::c/details ::c/balance)
+  )
 
 (defn load-normalized-transactions [inputFile]
   (let [lines (rest (take-csv inputFile))]
     (map #(zipmap [::c/date ::c/account ::c/amount ::c/details ::c/balance] %) lines)))
+
+(defn save-classification-summary [summary out]
+  (write-csv
+    (cons ["Category" "Amount"]
+          (into []
+                (map (fn [[k, v]] (vector k (commons/format-amount-no-decimals v)))
+                     (sort-by second summary))))
+    out))

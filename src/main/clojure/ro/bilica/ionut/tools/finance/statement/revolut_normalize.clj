@@ -3,8 +3,8 @@
   (:require [clojure.data.csv :as csv]
             [clojure.java.io :as io]
             [clojure.string :as s]
-            [ro.bilica.ionut.tools.finance.statement.normalize.normalize-commons :as common]
-            [ro.bilica.ionut.tools.finance.statement.normalize.csv-util :as csv-util]
+            [ro.bilica.ionut.tools.finance.statement.normalize-commons :as common]
+            [ro.bilica.ionut.tools.finance.statement.csv-util :as csv-util]
             )
   (:import (java.io File)
            (java.time.format DateTimeFormatter)))
@@ -18,10 +18,10 @@
     (and (s/ends-with? file-name ".csv")
          (s/starts-with? file-name "account-statement_"))))
 
-(def revolut-format (DateTimeFormatter/ofPattern "yyyy-MM-dd HH:mm:ss"))
+(def revolut-format (DateTimeFormatter/ofPattern "yyyy-MM-dd H:mm:ss"))
 
 (defn normalize-transaction [[_ _ date _ desc amount] account]
-  (let [n-date (common/normalize-date date revolut-format)
+  (let [n-date (common/normalize-date-time date revolut-format)
         n-amount (common/format-amount (Double/parseDouble amount))
         n-desc (s/trim desc)
         ]
@@ -46,12 +46,19 @@
         with-balance (common/add-balance in-ron (initial-amounts account))
         csv (common/add-csv-header with-balance)
         output-file (compute-output-file file)
+        _ (println output-file)
         ]
     (csv-util/write-csv csv output-file)))
 
-(defn normalize-dir [dir]
-  (let [files (filter is-revolut-csv? (.listFiles dir))]
+(defn normalize-dir [^String dir]
+  (let [files (filter is-revolut-csv? (.listFiles (File. dir)))]
     (pmap normalize-file files)))
+
+(defn do-normalize-dir [dir]
+  (try
+    (doall (normalize-dir dir))
+    (finally (shutdown-agents)))
+  )
 
 (defn -main [^String input-dir]
   (let [dir (File. input-dir)

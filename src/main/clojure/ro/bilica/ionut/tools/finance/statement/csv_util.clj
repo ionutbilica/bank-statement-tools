@@ -5,7 +5,7 @@
 
 (defn take-csv
   ([f]
-   (if (.exists f)
+   (if (.exists (io/as-file f))
      (with-open [fileReader (io/reader f)]
        (doall (csv/read-csv fileReader)))
      []))
@@ -14,9 +14,16 @@
 
 (defn take-csv-without-header
   ([f] (rest (take-csv f)))
-  ([f & keys] (rest (take-csv f keys)))
+  ([f & keys] (rest (apply take-csv f keys)))
   )
 
-(defn write-csv [lines f]                                   ;this needs to be moved to a util namespace.
+(defn write-csv [lines f]
   (with-open [writer (io/writer f)]
     (csv/write-csv writer lines)))
+
+(defn ceva
+  ([f & keys] (map #(zipmap keys %) '([1 2] [3 4]))))
+
+(defn- -main[]
+  (println (ceva 'x' ::a ::b))
+  )

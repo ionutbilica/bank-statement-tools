@@ -1,8 +1,8 @@
 (ns ro.bilica.ionut.tools.finance.statement.ing-normalize
   (:gen-class)
   (:require [clojure.string :as str]
-            [ro.bilica.ionut.tools.finance.statement.normalize.csv-util :as csv-util]
-            [ro.bilica.ionut.tools.finance.statement.normalize.normalize-commons :as common])
+            [ro.bilica.ionut.tools.finance.statement.csv-util :as csv-util]
+            [ro.bilica.ionut.tools.finance.statement.normalize-commons :as common])
   (:import (java.io File)
            (java.time LocalDate)
            (java.time.format DateTimeFormatter)
@@ -74,7 +74,7 @@
        (map reformat-date)
        (map vals)))
 
-(defn is-csv? [file] (str/ends-with? (.getName file) ".csv"))
+( defn is-csv? [file] (str/ends-with? (.getName file) ".csv"))
 
 (defn normalize-dir [dir initial-amount]
   (let [files (filter is-csv? (.listFiles dir))
@@ -85,6 +85,6 @@
         ]
     csv-content))
 
-(defn -main [^String input-dir initial-amount]
-  (csv-util/write-csv (normalize-dir (File. input-dir) (Double/parseDouble initial-amount)) "ing.csv")
+(defn ing-normalize-dir [^String input-dir initial-amount out]
+  (csv-util/write-csv (normalize-dir (File. input-dir) initial-amount) out)
   (shutdown-agents))
