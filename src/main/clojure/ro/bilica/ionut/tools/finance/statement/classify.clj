@@ -10,13 +10,11 @@
 
 (defn read-token[] (println "token:") (.toLowerCase (read-line)))
 
-(defn one-time-token? [token] (str/starts-with? token "1"))
-
 (defn read-token-until-matches [details]
   (loop [token (read-token)]
     (if (or (matches details token)
             (= "q" token)
-            (and (one-time-token? token ) (matches details (subs token 1))))
+            (= "1" token ))
       token
       (recur (read-token)))))
 
@@ -25,15 +23,18 @@
   (let [token (read-token-until-matches (::details t))]
     (if (= "q" token) ::quit
                       (let [category (do (println "category:") (read-line))
-                            date (when (one-time-token? token ) (::date t))
-                            clean-token (if (one-time-token? token) (subs token 1) token)
+                            date (when (= "1" token) (::date t))
+                            clean-token (if (= "1" token) (.toLowerCase (::details t)) token)
                             ]
                         {::token clean-token ::category category ::date date}))))
 
 (require '(ro.bilica.ionut.tools.finance.statement [classify-save-load :as sl]))
 
 (defn add-new-rule [rule rules permanent-rules-file one-time-rules-file]
-  (let [new-rules (cond (= ::quit rule) (assoc rules ::quit true)
+  (let [rule (if (= "1" (::category rule))
+               (assoc rule ::category (::category (last (::one-time-rules rules))))
+               rule)
+        new-rules (cond (= ::quit rule) (assoc rules ::quit true)
                         (::date rule) (update rules ::one-time-rules conj rule)
                         :else (update rules ::permanent-rules conj rule))]
     (sl/save-rules new-rules permanent-rules-file one-time-rules-file)

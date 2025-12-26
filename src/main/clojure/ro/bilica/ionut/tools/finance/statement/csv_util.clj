@@ -18,6 +18,7 @@
   )
 
 (defn write-csv [lines f]
+  (io/make-parents f)
   (with-open [writer (io/writer f)]
     (csv/write-csv writer lines)))
 

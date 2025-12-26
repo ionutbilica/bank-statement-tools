@@ -20,38 +20,36 @@
 
 (def revolut-format (DateTimeFormatter/ofPattern "yyyy-MM-dd H:mm:ss"))
 
-(defn normalize-transaction [[_ _ date _ desc amount] account]
-  (let [n-date (common/normalize-date-time date revolut-format)
-        n-amount (common/format-amount (Double/parseDouble amount))
-        n-desc (s/trim desc)
-        ]
-    [n-date account n-amount n-desc]))
+(defn to-ron [amount] (* 4.99 amount))
 
-(defn parse-account [csv]
-  (let [currency (nth (nth csv 1) 7)]
-    (str "revolut-" currency)))
+(defn normalize-transaction [[_ _ date _ desc amount fee currency status]]
+  (let [n-date (common/normalize-date-time date revolut-format)
+        n-fee (Double/parseDouble fee)
+        n-amount (- (Double/parseDouble amount) n-fee)
+        n-amount (if (= status "REVERTED") 0 n-amount)
+        n-amount-ron (if (= "EUR" currency) (to-ron n-amount) n-amount)
+        n-amount-formatted (common/format-amount n-amount-ron)
+        n-desc (s/trim desc)
+        account (str "revolut-" currency)
+        ]
+    [n-date account n-amount-formatted n-desc]))
 
 (defn compute-output-file [input-file] (File. (.getParentFile input-file) (str "Normalized-" (.getName input-file))))
 
-(defn to-ron [amount] (* 4.95 amount))
-(defn transaction-to-ron [t] (update t 2 #(common/format-amount(to-ron (Double/parseDouble %))))) ;TODO stop formatting and parsing!!!
-
-(def initial-amounts {"revolut-RON" (+ 81.76 39) "revolut-EUR" (to-ron (+ 14.74 9.99))})
+(def initial-amounts {"revolut-RON" (+ 61.74 173.61) "revolut-EUR" (to-ron (- 61 61))})
 
 (defn normalize-file [file]
   (let [input-csv (read-input-file file)
-        account (parse-account input-csv)
-        transactions (map #(normalize-transaction % account) (rest input-csv))
-        in-ron (if (= account "revolut-EUR") (map transaction-to-ron transactions) transactions)
-        with-balance (common/add-balance in-ron (initial-amounts account))
+        transactions (map #(normalize-transaction %) (rest input-csv))
+        with-balance (common/add-balance transactions initial-amounts)
         csv (common/add-csv-header with-balance)
         output-file (compute-output-file file)
         _ (println output-file)
         ]
     (csv-util/write-csv csv output-file)))
 
-(defn normalize-dir [^String dir]
-  (let [files (filter is-revolut-csv? (.listFiles (File. dir)))]
+(defn normalize-dir [^File dir]
+  (let [files (.listFiles dir)]
     (pmap normalize-file files)))
 
 (defn do-normalize-dir [dir]

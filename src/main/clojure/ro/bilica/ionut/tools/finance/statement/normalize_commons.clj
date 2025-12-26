@@ -12,12 +12,12 @@
 (defn normalize-date-time [date-str original-format] (.format (.toLocalDate (LocalDateTime/parse date-str original-format)) normal-date-format))
 (defn parse-normal-date [date-str] (LocalDate/parse date-str normal-date-format))
 
-(defn- reduce-for-balance [r [_ _ amount-str :as t]]
+(defn- reduce-for-balance [r [_ account amount-str :as t]]
   (let [amount (Double/parseDouble amount-str)
-        balance (+ amount (::prev r))
-        formatted-balance (format-amount balance)
-        ]
-    {::prev balance
+        prev (::prev r)
+        balance (+ amount (get prev account))
+        formatted-balance (format-amount balance)]
+    {::prev (assoc prev account balance)
      ::transactions (conj (::transactions r) (conj (into [] t) formatted-balance))
      }))
 
