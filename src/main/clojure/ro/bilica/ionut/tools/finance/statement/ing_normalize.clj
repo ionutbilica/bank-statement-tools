@@ -33,7 +33,7 @@
                              "Sold final"
                              ]) lines))
 
-(defn header? [line] (str/starts-with? line ",Data,,"))
+(defn header? [line] (str/starts-with? line "Data,,"))
 
 (defn- to-one-transaction-per-line [lines]
   (letfn [(reducer [result line]
@@ -58,7 +58,7 @@
 (def headers ["Data", "Detalii tranzactie", "Debit", "Credit"])
 
 (defn- parse-headers-to-positions [line]
-  (let [positions (map #(.indexOf (str/split (subs line 1) #",") %) headers)]
+  (let [positions (map #(.indexOf (str/split line #",") %) headers)]
     (zipmap headers positions)))
 
 (defn- parse-line [line headers-to-positions]

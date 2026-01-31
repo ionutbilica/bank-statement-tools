@@ -8,11 +8,12 @@
   (:import (java.io File))
   )
 
-(def root "D:\\resources\\raport2024\\ala\\")
+;(def root "D:\\resources\\raport2024\\ala\\")
+(def root "D:\\resources\\raport2025\\ala\\")
 (defn -main []
   #_(ing_normalize/ing-normalize-dir
            (str root "ing-raw")
-           3669
+           3631.14
            (str root "normalized\\ing.csv"))
   #_(revolut-normalize/do-normalize-dir
            (File. (str root "revolut-raw")))

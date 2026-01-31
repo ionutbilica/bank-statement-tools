@@ -50,7 +50,7 @@
 
 (defn normalize-dir [^File dir]
   (let [files (.listFiles dir)]
-    (pmap normalize-file files)))
+    (map normalize-file files)))
 
 (defn do-normalize-dir [dir]
   (try
