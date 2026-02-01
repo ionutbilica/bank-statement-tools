@@ -11,6 +11,11 @@
 ;(def root "D:\\resources\\raport2024\\ala\\")
 (def root "D:\\resources\\raport2025\\ala\\")
 (defn -main []
+
+
+  ;; TODO before anything: every output file should be named including year and owner, like classified-2025-ionut!
+
+
   #_(ing_normalize/ing-normalize-dir
            (str root "ing-raw")
            3631.14
